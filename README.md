@@ -9,7 +9,7 @@ Just a project to learn how to render **Bézier Curves**.
 To **run** the project, do this:
 
 ```fish
-./MakeFile && ./bezier
+./MakeFile -B && ./bezier
 ```
 
 ## Reference
