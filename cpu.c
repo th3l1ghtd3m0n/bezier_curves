@@ -117,7 +117,7 @@ void render_bezier3_markers(
         {
             render_marker(
                 renderer,
-                beziern3_sample(ps[0], ps[1], ps[2], p),
+                beziern_sample(ps, xs, n, p),
                 color
             );
         }
