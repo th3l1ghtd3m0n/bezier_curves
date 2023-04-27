@@ -1,4 +1,4 @@
 #!/bin/bash
 
 #bezier: main.c 
-cc -Wall -Wextra -std=c11 -pedantic `pkg-config --cflags sdl2` -o bezier main.c `pkg-config --libs sdl2` -lm
+cc -Wall -Wextra -std=c11 -pedantic `pkg-config --cflags sdl2 gl` -o bezier main.c `pkg-config --libs sdl2 gl` -lm

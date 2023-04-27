@@ -2,6 +2,8 @@
 #include <stdlib.h>
 
 #include <SDL.h>
+#include <SDL_opengl.h>
+#include <GL/gl.h>
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -10,10 +12,12 @@
 #define SCREEN_FPS 60
 #define DELTA_TIME_SEC (1.0f / SCREEN_FPS)
 #define DELTA_TIME_MS ((Uint32) floorf(DELTA_TIME_SEC * 1000.0f))
+#define BEZIER_PROB_THRESHOLD 10.0f
 
 #define BACKGROUND_COLOR 0x181926FF
 #define FOREGROUND_COLOR 0xF5A97FFF // marker
 #define LAVENDER_COLOR 0xB7BDF8FF // points
+#define DARK_LAVENDER_COLOR 0x6778E6FF
 #define FLAMINGO 0xF0C6C6FF 
 
 #define HEX_COLOR(hex)          \
@@ -63,6 +67,11 @@ Vec2 vec2_sub(Vec2 a, Vec2 b)
 Vec2 vec2_add(Vec2 a, Vec2 b)
 {
     return vec2(a.x + b.x, a.y + b.y);
+}
+
+Vec2 vec2_add3(Vec2 a, Vec2 b, Vec2 c)
+{
+    return vec2_add(vec2_add(a, b), c);
 }
 
 Vec2 vec2_scale(Vec2 a, float s)
@@ -128,6 +137,45 @@ void render_marker(SDL_Renderer *renderer, Vec2 pos, uint32_t color)
     );
 }
 
+int is_p0_on_the_curve(Vec2 p1, Vec2 p2, Vec2 p3, Vec2 p0, float threshold)
+{
+    const float a = p3.x - 2 * p2.x + p1.x;
+    const float b = 2 * (p2.x - p1.x);
+    const float c = p1.x - p0.x;
+    const float dx = b * b - 4.0f * a * c;
+
+    if (dx >= 0.0f)
+    {
+        const float t1 = (-b + sqrt(dx)) / (2 * a);
+        const float t2 = (-b - sqrt(dx)) / (2 * a);
+        const float y1 = p1.y + 2 * t1 * (p2.y - p1.y) + t1 * t1 * (p3.y - 2 * p2.y + p1.y);
+        const float y2 = p1.y + 2 * t2 * (p2.y - p1.y) + t2 * t2 * (p3.y - 2 * p2.y + p1.y);
+        return (0.0f <= t1 && t1 <= 1.0f && fabsf(p0.y - y1) < threshold) || 
+               (0.0f <= t2 && t2 <= 1.0f && fabsf(p0.y - y2) < threshold);
+    }
+
+    return 0;
+}
+
+Vec2 beziern3_sample(Vec2 p1, Vec2 p2, Vec2 p3, float t)
+{
+    return vec2_add3(
+        p1,
+        vec2_scale(
+            vec2_sub(p2, p1), 
+            2.0f * t
+        ),
+        vec2_scale(
+            vec2_add3(
+                p3, 
+                vec2_scale(p2, -2.0f), 
+                p1
+            ),
+            t * t
+        )
+    );
+}
+
 Vec2 beziern_sample(Vec2 *ps, Vec2 *xs, size_t n, float p)
 {
     memcpy(xs, ps, sizeof(Vec2) * n);
@@ -142,6 +190,27 @@ Vec2 beziern_sample(Vec2 *ps, Vec2 *xs, size_t n, float p)
     }
 
     return xs[0];
+}
+
+void render_bezier3_markers(
+    SDL_Renderer *renderer, 
+    Vec2 *ps, Vec2 *xs,
+    size_t n,
+    float s,
+    uint32_t color
+){
+    (void) xs;
+    if(n >= 3)
+    {
+        for (float p = 0.0f; p <= 1.0f; p += s)
+        {
+            render_marker(
+                renderer,
+                beziern3_sample(ps[0], ps[1], ps[2], p),
+                color
+            );
+        }
+    }
 }
 
 void render_bezier_markers(
@@ -203,6 +272,45 @@ int ps_at(Vec2 pos)
     return -1;
 }
 
+int main2(void)
+{
+    check_sdl_code(SDL_Init(SDL_INIT_VIDEO));
+
+    SDL_Window * const window = check_sdl_ptr(
+        SDL_CreateWindow(
+            "Bezier Curves",
+            0, 0,
+            SCREEN_WIDTH, SCREEN_HEIGHT, 
+            SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL
+        )
+    );
+
+    SDL_GL_CreateContext(window);
+
+    int quit = 0;
+    while (!quit)
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            switch (event.type)
+            {
+                case SDL_QUIT: {
+                    quit = 1;
+                } break;
+            }
+        }
+
+        glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        SDL_GL_SwapWindow(window);
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     check_sdl_code(SDL_Init(SDL_INIT_VIDEO));
@@ -235,6 +343,7 @@ int main(void)
     int markers = 1;
     float t = 0.0f;
     float bezier_sample_step = 0.05f;
+    Vec2 bezier_prob = vec2(0.0f, 0.0f);
     while (!quit)
     {
         SDL_Event event;
@@ -281,6 +390,7 @@ int main(void)
                         event.motion.x, 
                         event.motion.y
                     );
+                    bezier_prob = mouse_pos;
                     if (ps_selected >= 0)
                     {
                         ps[ps_selected] = mouse_pos;
@@ -313,11 +423,11 @@ int main(void)
         {
             if (markers)
             {
-                render_bezier_markers(
+                render_bezier3_markers(
                     renderer,
                     ps, xs, ps_count,
                     bezier_sample_step,
-                    FOREGROUND_COLOR
+                    FLAMINGO
                 );
             } else
             {
@@ -337,6 +447,14 @@ int main(void)
             {
                 render_line(renderer, ps[i], ps[i + 1], LAVENDER_COLOR);
             }
+        }
+
+        if(ps_count >= 3 && is_p0_on_the_curve(ps[0], ps[1], ps[2], bezier_prob, BEZIER_PROB_THRESHOLD))
+        {
+            render_marker(renderer, bezier_prob, DARK_LAVENDER_COLOR);
+        } else 
+        {
+            render_marker(renderer, bezier_prob, FOREGROUND_COLOR);
         }
 
         SDL_RenderPresent(renderer);
