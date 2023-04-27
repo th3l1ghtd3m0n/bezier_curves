@@ -1,0 +1,7 @@
+# app
+bezier
+
+# useless packages
+node_modules
+package.json
+package-lock.json
