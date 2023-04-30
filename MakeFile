@@ -1,6 +1,0 @@
-#!/bin/bash
-
-# all: this will create 2 apps: cpu && gpu 
-cc -Wall -Wextra -std=c11 -pedantic `pkg-config --cflags sdl2 gl` -o cpu cpu.c `pkg-config --libs sdl2 gl` -lm
-
-cc -Wall -Wextra -std=c11 -pedantic `pkg-config --cflags sdl2 gl` -o gpu gpu.c `pkg-config --libs sdl2 gl` -lm

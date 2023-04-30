@@ -15,7 +15,7 @@ Just a project to learn how to render **Bézier Curves**.
 To **run** the project, do this:
 
 ```fish
-./MakeFile -B
+./make -B
 ```
 
 *Note it will create 2 apps: cpu && gpu*
