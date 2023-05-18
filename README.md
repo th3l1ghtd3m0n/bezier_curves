@@ -23,3 +23,4 @@ To **run** the project, do this:
 ## Reference
 
 - [GeoGebra](https://www.geogebra.org/m/WPHQ9rUt)
+- [Tsoding](https://github.com/tsoding/bezier)
